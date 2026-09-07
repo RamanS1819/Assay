@@ -1,0 +1,25 @@
+node_modules/
+.next/
+dist/
+out/
+coverage/
+
+# secrets — never commit a real testnet key into a public repo
+.env
+.env.local
+.env.*.local
+
+*.log
+npm-debug.log*
+.DS_Store
+
+# local tooling, not part of the submission
+.claude/
+
+# planning docs — kept local, not part of the public submission
+Assay-Build-Plan.pdf
+Assay-Product-Spec.pdf
+ASSAY-DECISIONS.md
+ASSAY-MASTER-PLAN.md
+ASSAY-SPEC.md
+ASSAY-TEST-PLAN.md
