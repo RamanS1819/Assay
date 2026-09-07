@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseLending, parsePortfolio } from './sources';
+import { parseLending, parsePortfolio, parseLiquidations } from './sources';
 
 describe('parseLending', () => {
   it('returns empty (no history) when the account is missing', () => {
@@ -68,5 +68,23 @@ describe('parsePortfolio', () => {
 
   it('returns empty for an unrecognized shape', () => {
     expect(parsePortfolio({ nonsense: true })).toEqual([]);
+  });
+});
+
+describe('parseLiquidations', () => {
+  it('extracts lowercased liquidatee addresses with block numbers', () => {
+    const data = { liquidates: [
+      { blockNumber: '100', liquidatee: { id: '0xAAA' } },
+      { blockNumber: 200, liquidatee: { id: '0xbbb' } },
+    ] };
+    expect(parseLiquidations(data)).toEqual([
+      { liquidatee: '0xaaa', blockNumber: 100 },
+      { liquidatee: '0xbbb', blockNumber: 200 },
+    ]);
+  });
+
+  it('drops rows with no liquidatee and returns empty for a missing field', () => {
+    expect(parseLiquidations({ liquidates: [{ blockNumber: 1, liquidatee: { id: '' } }] })).toEqual([]);
+    expect(parseLiquidations({})).toEqual([]);
   });
 });

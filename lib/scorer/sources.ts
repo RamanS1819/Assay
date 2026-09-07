@@ -140,4 +140,64 @@ export async function fetchPortfolio(address: string): Promise<RawPortfolio> {
   return parsePortfolio(await res.json());
 }
 
+// ---------------------------------------------------------------------------
+// The Graph — the watcher's ONE global liquidation query (plan §3).
+// One query every ~60s across every lending protocol, filtered locally. This is
+// what keeps the query budget flat regardless of how many holders are watched.
+// ---------------------------------------------------------------------------
+
+export interface LiquidationEvent {
+  liquidatee: string;
+  blockNumber: number;
+}
+
+export const LIQUIDATIONS_QUERY = `
+query Liquidations($from: BigInt!, $to: BigInt!) {
+  liquidates(
+    where: { blockNumber_gte: $from, blockNumber_lte: $to }
+    orderBy: blockNumber
+    orderDirection: asc
+    first: 1000
+  ) {
+    blockNumber
+    liquidatee { id }
+  }
+}`;
+
+/** Pure: raw GraphQL `data` -> liquidation events. Unit-tested with fixtures. */
+export function parseLiquidations(data: any): LiquidationEvent[] {
+  const rows: any[] = data?.liquidates ?? [];
+  return rows
+    .map((r) => ({
+      liquidatee: String(r.liquidatee?.id ?? r.liquidatee ?? '').toLowerCase(),
+      blockNumber: Number(r.blockNumber ?? 0),
+    }))
+    .filter((e) => e.liquidatee !== '');
+}
+
+export async function fetchLiquidations(fromBlock: number, toBlock: number): Promise<LiquidationEvent[]> {
+  const res = await fetch(env('GRAPH_LENDING_SUBGRAPH_URL'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GRAPH_API_KEY')}` },
+    body: JSON.stringify({ query: LIQUIDATIONS_QUERY, variables: { from: String(fromBlock), to: String(toBlock) } }),
+  });
+  if (!res.ok) throw new Error(`Graph liquidations query failed: ${res.status}`);
+  const json = (await res.json()) as any;
+  if (json.errors) throw new Error(`Graph liquidations errors: ${JSON.stringify(json.errors)}`);
+  return parseLiquidations(json.data);
+}
+
+export const HEAD_BLOCK_QUERY = `query { _meta { block { number } } }`;
+
+export async function fetchHeadBlock(): Promise<number> {
+  const res = await fetch(env('GRAPH_LENDING_SUBGRAPH_URL'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${env('GRAPH_API_KEY')}` },
+    body: JSON.stringify({ query: HEAD_BLOCK_QUERY }),
+  });
+  if (!res.ok) throw new Error(`Graph head-block query failed: ${res.status}`);
+  const json = (await res.json()) as any;
+  return Number(json?.data?._meta?.block?.number ?? 0);
+}
+
 export type { ScoreInputs };
