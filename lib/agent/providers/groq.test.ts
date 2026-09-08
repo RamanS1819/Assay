@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildMessages, parseContent, GroqProvider, makeUnderwriteProvider } from './groq';
+import { buildMessages, parseContent, GroqProvider } from './groq';
 import type { UnderwriteRequest } from '../underwrite';
 import type { Score, Policy } from '../../types/index';
 
@@ -51,14 +51,5 @@ describe('GroqProvider.underwrite', () => {
   it('throws on a non-ok response (loop then falls back to the deterministic baseline)', async () => {
     const fetchFn = vi.fn(async () => ({ ok: false, status: 429 })) as unknown as typeof fetch;
     await expect(new GroqProvider('k', undefined, fetchFn).underwrite(req)).rejects.toThrow('Groq failed: 429');
-  });
-});
-
-describe('makeUnderwriteProvider', () => {
-  it('returns a Groq provider by default', () => {
-    expect(makeUnderwriteProvider('groq')).toBeInstanceOf(GroqProvider);
-  });
-  it('rejects an unimplemented provider', () => {
-    expect(() => makeUnderwriteProvider('gemini')).toThrow(/not implemented/);
   });
 });

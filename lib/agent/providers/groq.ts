@@ -72,13 +72,3 @@ export class GroqProvider implements UnderwriteProvider {
     return parseContent(json?.choices?.[0]?.message?.content ?? '');
   }
 }
-
-/** Pick a provider by env. Groq is implemented; Gemini/Ollama follow the same interface. */
-export function makeUnderwriteProvider(kind = process.env.LLM_PROVIDER ?? 'groq'): UnderwriteProvider {
-  switch (kind) {
-    case 'groq':
-      return new GroqProvider();
-    default:
-      throw new Error(`LLM provider "${kind}" not implemented yet (groq available; gemini/ollama plug into the same interface)`);
-  }
-}
