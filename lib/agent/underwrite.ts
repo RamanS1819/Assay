@@ -62,6 +62,6 @@ export async function underwrite(req: UnderwriteRequest, provider?: UnderwritePr
     rationale: result.rationale,
     scoreRef: { address: req.score.address, asOfBlock: req.score.asOfBlock, value: req.score.value },
     revokes,
-    escalated: needsEscalation({ limit: result.limit, revokes }, req.policy),
+    escalated: needsEscalation({ limit: result.limit, revokes, exposureUnits: req.exposureUnits }, req.policy),
   };
 }

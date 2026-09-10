@@ -51,14 +51,18 @@ export function shouldSpend(input: SpendDecisionInput): SpendDecision {
 
 /**
  * The un-bypassable gate. Mirrors the Privy key-quorum policy in the app so the
- * console can show it; the real enforcement is Privy refusing to sign. Any revoke
- * or an issuance above the quorum threshold requires 2-of-3 human signers.
+ * console can show it; the real enforcement is Privy refusing to sign. Escalates
+ * (2-of-3 humans) when an issuance exceeds the quorum threshold, or when revoking a
+ * LARGE position (above the threshold). A small protective revoke stays autonomous —
+ * the agent should be able to pull a risky small holder without waiting on humans.
  */
 export function needsEscalation(
-  decision: { limit: number; revokes: boolean },
+  decision: { limit: number; revokes: boolean; exposureUnits: number },
   policy: Pick<Policy, 'quorumThresholdUnits'>,
 ): boolean {
-  return decision.revokes || decision.limit > policy.quorumThresholdUnits;
+  if (decision.limit > policy.quorumThresholdUnits) return true;
+  if (decision.revokes && decision.exposureUnits > policy.quorumThresholdUnits) return true;
+  return false;
 }
 
 // ---- deterministic limit baseline -----------------------------------------

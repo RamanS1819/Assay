@@ -47,9 +47,15 @@ describe('underwrite', () => {
     expect((await underwrite(req(70), provider)).limit).toBe(50000);
   });
 
-  it('treats denial of a current holder as a revocation and escalates it', async () => {
-    const d = await underwrite(req(30, 5000));
+  it('revokes a denied small holder autonomously (no escalation)', async () => {
+    const d = await underwrite(req(30, 5000)); // holds 5000 < 10000 threshold
     expect(d.limit).toBe(0);
+    expect(d.revokes).toBe(true);
+    expect(d.escalated).toBe(false);
+  });
+
+  it('escalates the revocation of a denied large holder', async () => {
+    const d = await underwrite(req(30, 50_000));
     expect(d.revokes).toBe(true);
     expect(d.escalated).toBe(true);
   });

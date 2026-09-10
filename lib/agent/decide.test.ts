@@ -47,14 +47,17 @@ describe('shouldSpend', () => {
 
 describe('needsEscalation', () => {
   const policy = { quorumThresholdUnits: 10_000 };
-  it('escalates any revocation', () => {
-    expect(needsEscalation({ limit: 0, revokes: true }, policy)).toBe(true);
-  });
   it('escalates issuance above the threshold', () => {
-    expect(needsEscalation({ limit: 50_000, revokes: false }, policy)).toBe(true);
+    expect(needsEscalation({ limit: 50_000, revokes: false, exposureUnits: 0 }, policy)).toBe(true);
   });
   it('lets an under-threshold issuance through autonomously', () => {
-    expect(needsEscalation({ limit: 5_000, revokes: false }, policy)).toBe(false);
+    expect(needsEscalation({ limit: 5_000, revokes: false, exposureUnits: 0 }, policy)).toBe(false);
+  });
+  it('escalates the revocation of a large position', () => {
+    expect(needsEscalation({ limit: 0, revokes: true, exposureUnits: 50_000 }, policy)).toBe(true);
+  });
+  it('lets a small protective revoke run autonomously', () => {
+    expect(needsEscalation({ limit: 0, revokes: true, exposureUnits: 500 }, policy)).toBe(false);
   });
 });
 
