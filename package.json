@@ -8,10 +8,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "privy:wallet": "tsx scripts/privy-create-wallet.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@privy-io/server-auth": "^1.32.5",
+    "dotenv": "^17.4.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
