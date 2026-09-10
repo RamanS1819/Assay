@@ -11,12 +11,16 @@
 import type { Score, UnderwritingDecision, Policy } from '../types/index';
 import { suggestedLimit, needsEscalation } from './decide';
 
+/** A holder whose score drops below this is revoked, even if the raw limit is > 0. */
+export const MAINTENANCE_FLOOR = 50;
+
 export interface UnderwriteRequest {
   score: Score;
   exposureUnits: number; // units the subject currently holds
   requestedUnits: number; // units the subject is asking for
   policy: Policy;
   maxLimitUnits: number;
+  revokeBelowScore?: number; // maintenance floor override
 }
 
 /** The LLM behind an interface (Groq primary, Gemini spare, Ollama fallback). */
@@ -53,15 +57,18 @@ export async function underwrite(req: UnderwriteRequest, provider?: UnderwritePr
     result = fallbackUnderwrite(req);
   }
 
-  // Denied while the subject still holds units = a revocation (downgrade).
-  const revokes = result.limit === 0 && req.exposureUnits > 0;
+  // A current holder is revoked if denied (limit 0) OR if the fresh score falls below
+  // the maintenance floor — the bureau pulls the line when creditworthiness drops.
+  const belowMaintenance = req.score.value < (req.revokeBelowScore ?? MAINTENANCE_FLOOR);
+  const revokes = req.exposureUnits > 0 && (result.limit === 0 || belowMaintenance);
+  const limit = revokes ? 0 : result.limit;
 
   return {
     subject: req.score.address,
-    limit: result.limit,
+    limit,
     rationale: result.rationale,
     scoreRef: { address: req.score.address, asOfBlock: req.score.asOfBlock, value: req.score.value },
     revokes,
-    escalated: needsEscalation({ limit: result.limit, revokes, exposureUnits: req.exposureUnits }, req.policy),
+    escalated: needsEscalation({ limit, revokes, exposureUnits: req.exposureUnits }, req.policy),
   };
 }

@@ -66,6 +66,18 @@ describe('underwrite', () => {
     expect(d.escalated).toBe(false);
   });
 
+  it('revokes a current holder whose score drops below the maintenance floor', async () => {
+    const d = await underwrite(req(46, 3000)); // score 46 < 50, holds 3000 units
+    expect(d.revokes).toBe(true);
+    expect(d.limit).toBe(0); // line pulled even though the raw score would allow > 0
+  });
+
+  it('keeps a healthy holder above the floor', async () => {
+    const d = await underwrite(req(70, 3000));
+    expect(d.revokes).toBe(false);
+    expect(d.limit).toBeGreaterThan(0);
+  });
+
   it('bounds a runaway rationale to 500 chars', async () => {
     const provider = { underwrite: vi.fn(async () => ({ limit: 1000, rationale: 'x'.repeat(9999) })) };
     expect((await underwrite(req(70), provider)).rationale.length).toBe(500);
