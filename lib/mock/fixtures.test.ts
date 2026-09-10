@@ -14,12 +14,13 @@ describe('demoChain fixtures', () => {
     expect(scoreOf(chain, ADDR.whale)).toBeGreaterThan(scoreOf(chain, ADDR.fresh));
   });
 
-  it('drops the distressed wallet\'s score after a liquidation (beat 5 trigger)', () => {
+  it('drops the distressed wallet\'s score below the maintenance floor after a liquidation (beat 5 trigger)', () => {
     const chain = demoChain();
     const before = scoreOf(chain, ADDR.distressed);
     chain.liquidate(ADDR.distressed);
     const after = scoreOf(chain, ADDR.distressed);
     expect(after).toBeLessThan(before);
+    expect(after).toBeLessThan(50); // below MAINTENANCE_FLOOR -> triggers revoke
   });
 
   it('surfaces the liquidation event in the global query window', () => {

@@ -94,6 +94,8 @@ export class MockChain {
         minHealthFactor: 1.0,
         openBorrowsUsd: p.lending.collateralUsd * 0.98,
       };
+      // collateral is seized in a liquidation — the portfolio craters to a small remainder
+      p.portfolio = [{ symbol: 'WETH', valueUsd: 3_000, isStablecoin: false }];
     }
   }
 
