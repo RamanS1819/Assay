@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "demo": "tsx scripts/demo.ts",
     "privy:wallet": "tsx scripts/privy-create-wallet.ts",
-    "probe:graph": "tsx scripts/probe-graph.ts"
+    "probe:graph": "tsx scripts/probe-graph.ts",
+    "fund:agent": "tsx scripts/fund-agent.ts",
+    "smoke:executor": "tsx scripts/smoke-executor.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
