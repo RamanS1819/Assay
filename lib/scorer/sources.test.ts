@@ -19,10 +19,10 @@ describe('parseLending', () => {
   it('aggregates collateral and borrows in USD from positions', () => {
     const data = {
       _meta: { block: { number: 500 } },
+      liquidates: [{ id: 'l1' }], // one liquidation event for this liquidatee
       account: {
         depositCount: 3,
         borrowCount: 2,
-        liquidationCount: 1,
         positions: [
           { side: 'LENDER', balance: '1000000000', isCollateral: true, blockNumberOpened: 200, asset: { symbol: 'USDC', decimals: 6, lastPriceUSD: '1' } }, // 1000 USDC collateral
           { side: 'BORROWER', balance: '500000000000000000', isCollateral: false, blockNumberOpened: 250, asset: { symbol: 'WETH', decimals: 18, lastPriceUSD: '2000' } }, // 0.5 WETH borrow = $1000
@@ -36,7 +36,7 @@ describe('parseLending', () => {
     expect(r.minHealthFactor).toBeCloseTo(1, 6); // 1000 collateral / 1000 borrows
     expect(r.firstActivityBlock).toBe(200);
     expect(r.txCount).toBe(5);
-    expect(r.liquidationCount).toBe(1);
+    expect(r.liquidationCount).toBe(1); // from the liquidates events, not the account counter
   });
 
   it('sets minHealthFactor null when the account never borrowed', () => {

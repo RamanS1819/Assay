@@ -51,14 +51,15 @@ function env(name: string): string {
 // The Graph — Messari standardized lending schema
 // ---------------------------------------------------------------------------
 
-// VERIFY field names against the live Messari subgraph once GRAPH_* is set.
+// Verified against the live Messari Aave v3 subgraph. Liquidations are counted from
+// the `liquidates` events for this account — the account-level `liquidationCount`
+// counter is not reliably populated in this deployment.
 export const LENDING_QUERY = `
 query AccountLending($id: ID!) {
   account(id: $id) {
     id
     depositCount
     borrowCount
-    liquidationCount
     positions(first: 1000) {
       side
       balance
@@ -67,6 +68,7 @@ query AccountLending($id: ID!) {
       asset { symbol decimals lastPriceUSD }
     }
   }
+  liquidates(where: { liquidatee: $id }, first: 1000) { id }
   _meta { block { number } }
 }`;
 
@@ -99,7 +101,7 @@ export function parseLending(data: any): RawLendingData {
     openBorrowsUsd,
     collateralUsd,
     minHealthFactor,
-    liquidationCount: Number(account.liquidationCount ?? 0),
+    liquidationCount: (data?.liquidates ?? []).length, // counted from liquidates events
   };
 }
 
