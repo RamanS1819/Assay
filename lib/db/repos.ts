@@ -1,12 +1,14 @@
 /**
  * Write-side repositories the loop and gateway use to feed the console:
- *   - AuditRepo    every event worth showing (append-only)
- *   - ScoresRepo   score history for the holder register
- *   - PaymentsRepo x402 receipts with their Hedera tx hash
+ *   - AuditRepo     every event worth showing (append-only)
+ *   - ScoresRepo    score history for the holder register
+ *   - PaymentsRepo  x402 receipts with their Hedera tx hash
+ *   - DecisionsRepo underwriting outcomes (limit, rationale, state)
+ *   - HoldersRepo   the current holder register (upserted each decision)
  *
  * The `sql` client is injected; value mapping is unit-tested with a mock.
  */
-import type { Score, AuditEvent } from '../types/index';
+import type { Score, UnderwritingDecision, AuditEvent } from '../types/index';
 import type { Sql } from './stores';
 
 export class AuditRepo {
@@ -41,5 +43,35 @@ export class PaymentsRepo {
       INSERT INTO payments (tx_hash, amount, route, subject_address)
       VALUES (${p.txHash}, ${p.amount}, ${p.route}, ${p.subject})
       ON CONFLICT (tx_hash) DO NOTHING`;
+  }
+}
+
+/** issued = line granted, revoked = line pulled, escalated = withheld for 2-of-3 quorum. */
+export type DecisionState = 'issued' | 'escalated' | 'revoked';
+
+export class DecisionsRepo {
+  constructor(private sql: Sql) {}
+  async record(d: UnderwritingDecision, state: DecisionState): Promise<void> {
+    await this.sql`
+      INSERT INTO decisions (subject, limit_units, rationale, as_of_block, score_value, state, escalated)
+      VALUES (${d.subject}, ${d.limit}, ${d.rationale}, ${d.scoreRef.asOfBlock}, ${d.scoreRef.value}, ${state}, ${d.escalated})`;
+  }
+}
+
+export interface HolderState {
+  address: string;
+  units: number;
+  eligible: boolean;
+  limit: number;
+}
+
+export class HoldersRepo {
+  constructor(private sql: Sql) {}
+  async upsert(h: HolderState): Promise<void> {
+    await this.sql`
+      INSERT INTO holders (address, units, eligibility, limit_units)
+      VALUES (${h.address}, ${h.units}, ${h.eligible}, ${h.limit})
+      ON CONFLICT (address) DO UPDATE
+        SET units = ${h.units}, eligibility = ${h.eligible}, limit_units = ${h.limit}`;
   }
 }

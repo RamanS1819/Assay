@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { AuditRepo, ScoresRepo, PaymentsRepo } from './repos';
+import { AuditRepo, ScoresRepo, PaymentsRepo, DecisionsRepo, HoldersRepo } from './repos';
 import type { Sql } from './stores';
-import type { Score, AuditEvent } from '../types/index';
+import type { Score, AuditEvent, UnderwritingDecision } from '../types/index';
 
 /** Mock neon client; a tagged call sql`...${a}${b}` invokes fn(strings, a, b). */
 function mockSql() {
@@ -48,5 +48,33 @@ describe('PaymentsRepo', () => {
     const m = mockSql();
     await new PaymentsRepo(m.sql).save({ txHash: '0xtx', amount: '2000', route: '/score', subject: '0x1' });
     expect(m.values()).toEqual(['0xtx', '2000', '/score', '0x1']);
+  });
+});
+
+const DECISION: UnderwritingDecision = {
+  subject: '0xsub',
+  limit: 5000,
+  rationale: 'Limit 5000 from score 72.',
+  scoreRef: { address: '0xsub', asOfBlock: 500, value: 72 },
+  revokes: false,
+  escalated: false,
+};
+
+describe('DecisionsRepo', () => {
+  it('records the outcome keyed to the score it was made from', async () => {
+    const m = mockSql();
+    await new DecisionsRepo(m.sql).record(DECISION, 'issued');
+    const [subject, limit, rationale, asOfBlock, scoreValue, state, escalated] = m.values();
+    expect([subject, limit, asOfBlock, scoreValue, state, escalated]).toEqual(['0xsub', 5000, 500, 72, 'issued', false]);
+    expect(rationale).toBe('Limit 5000 from score 72.');
+  });
+});
+
+describe('HoldersRepo', () => {
+  it('upserts the current register row', async () => {
+    const m = mockSql();
+    await new HoldersRepo(m.sql).upsert({ address: '0xsub', units: 5000, eligible: true, limit: 5000 });
+    // INSERT ... VALUES (addr, units, eligible, limit) then ON CONFLICT SET (units, eligible, limit)
+    expect(m.values().slice(0, 4)).toEqual(['0xsub', 5000, true, 5000]);
   });
 });
