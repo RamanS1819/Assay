@@ -9,13 +9,14 @@
  * Usage:
  *   npm run agent -- 0xADDR1 0xADDR2            score + decide + persist (no chain writes)
  *   npm run agent -- --discover 3              auto-pick recently-liquidated addresses
+ *   npm run agent -- 0xADDR --pay              BUY each score over x402 (real HBAR, needs the app up)
  *   npm run agent -- 0xADDR --execute          also issue/revoke on-chain (costs gas)
  *   npm run agent -- 0xADDR --requested 8000   requested credit line per subject
  *
- * What is LIVE here: the scorer (real Aave data via The Graph) and, with --execute,
- * the executor (real CreditToken writes, signed by Privy). What is NOT paid here: the
- * x402 score purchase — the worker scores its own watchlist, it doesn't pay itself;
- * the paid path is the buyer -> gateway flow, built separately.
+ * What is LIVE here: the scorer (real Aave data via The Graph); with --pay the agent
+ * is a real paying customer of its own bureau (x402 -> Blocky402 settles HBAR, the
+ * /api/score route records the payment); with --execute the executor writes the
+ * CreditToken on Hedera (Privy-signed). Default is score + decide + persist only.
  */
 import 'dotenv/config';
 import { runCycle, SimpleBudget, type LoopOps, type Subject } from '../lib/agent/loop';
@@ -25,26 +26,30 @@ import { getScore } from '../lib/scorer/getScore';
 import { InMemoryScoreCache, cacheKey } from '../lib/scorer/cache';
 import { makeLiveScoreDeps, liveHeadBlock } from '../lib/live/scorer';
 import { makePrivyExecutor } from '../lib/live/privy-executor';
+import { x402Fetch } from '../lib/live/x402-client';
+import { makeBuyerPaymentBuilder } from '../lib/live/x402-gateway';
 import { makeSql } from '../lib/db/client';
 import { AuditRepo, ScoresRepo, DecisionsRepo, HoldersRepo, type DecisionState } from '../lib/db/repos';
 import { fetchLiquidations } from '../lib/scorer/sources';
-import type { AuditEvent, Policy } from '../lib/types/index';
+import type { AuditEvent, Policy, Score } from '../lib/types/index';
 
-const PRICE = 0; // the worker scores its own list; no self-payment (x402 is the buyer path)
+const QUERY_PRICE_USD = 0.002; // the advertised per-query price the budget cap tracks
 const POLICY: Policy = { perRequestCapUsd: 0.05, dailyCapUsd: 5, quorumThresholdUnits: 10_000, quorumRequired: 2, quorumSigners: 3 };
 
 interface Args {
   addresses: string[];
   execute: boolean;
+  pay: boolean;
   discover: number;
   requested: number;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { addresses: [], execute: false, discover: 0, requested: 5000 };
+  const args: Args = { addresses: [], execute: false, pay: false, discover: 0, requested: 5000 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--execute') args.execute = true;
+    else if (a === '--pay') args.pay = true;
     else if (a === '--discover') args.discover = Number(argv[++i] ?? '1');
     else if (a === '--requested') args.requested = Number(argv[++i] ?? '5000');
     else if (a.startsWith('0x')) args.addresses.push(a.toLowerCase());
@@ -100,8 +105,14 @@ async function main() {
   const append = (e: AuditEvent) => audit.append(e);
 
   const executor = args.execute ? makePrivyExecutor() : null;
-  if (args.execute) console.log('--execute: on-chain issue/revoke ENABLED (Privy-signed, costs gas).\n');
-  else console.log('record-only: scoring + underwriting persisted; no chain writes (pass --execute to issue/revoke).\n');
+  const buyPayment = args.pay ? makeBuyerPaymentBuilder() : null;
+  const appBase = process.env.APP_BASE_URL ?? 'http://localhost:3000';
+  const price = args.pay ? QUERY_PRICE_USD : 0;
+
+  if (args.pay) console.log(`--pay: buying each score over x402 (real HBAR via Blocky402) from ${appBase}/api/score`);
+  if (args.execute) console.log('--execute: on-chain issue/revoke ENABLED (Privy-signed, costs gas).');
+  if (!args.pay && !args.execute) console.log('record-only: scoring + underwriting persisted; no chain writes, no payment.');
+  console.log('');
 
   const ops: LoopOps = {
     peekScore: (address, block) => {
@@ -109,6 +120,14 @@ async function main() {
       return s ? { asOfBlock: s.asOfBlock } : null;
     },
     buyScore: async (subject, block) => {
+      if (buyPayment) {
+        // Pay per query: the /api/score route settles the HBAR and records the
+        // payment + score, so we don't persist them again here.
+        const out = await x402Fetch<Score>(`${appBase}/api/score?address=${subject.address}`, buyPayment);
+        const score = out.data;
+        console.log(`  bought score ${score.value}  (paid ${out.paymentTxHash ?? 'n/a'})  ${subject.address}`);
+        return { score };
+      }
       const score = await getScore(subject.address, { atBlock: block, chain: 'ethereum' }, scoreDeps);
       await scores.save(score);
       await append({ type: 'score', subject: subject.address, value: score.value, asOfBlock: score.asOfBlock, at: now() });
@@ -143,7 +162,7 @@ async function main() {
   };
 
   console.log(`Scoring ${subjects.length} subject(s) @ block ${atBlock}...\n`);
-  const result = await runCycle(subjects, atBlock, ops, { price: PRICE, budget: new SimpleBudget(POLICY.dailyCapUsd), now });
+  const result = await runCycle(subjects, atBlock, ops, { price, budget: new SimpleBudget(POLICY.dailyCapUsd), now });
 
   console.log('\n--- CYCLE ---');
   console.log(`  scored:    ${result.scored.length}`);
