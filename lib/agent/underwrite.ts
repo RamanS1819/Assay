@@ -30,10 +30,12 @@ export interface UnderwriteProvider {
 
 export function fallbackUnderwrite(req: UnderwriteRequest): { limit: number; rationale: string } {
   const limit = suggestedLimit(req.score.value, req.maxLimitUnits);
+  const leverage = Math.round(req.score.subscores.leverageHistory);
+  const portfolio = Math.round(req.score.subscores.portfolioQuality);
   const rationale =
     limit === 0
-      ? `Denied: score ${req.score.value} below floor (leverage ${req.score.subscores.leverageHistory}/100).`
-      : `Limit ${limit} units from score ${req.score.value} (leverage ${req.score.subscores.leverageHistory}, portfolio ${req.score.subscores.portfolioQuality}).`;
+      ? `Denied: score ${req.score.value} below floor (leverage ${leverage}/100).`
+      : `Limit ${limit} units from score ${req.score.value} (leverage ${leverage}, portfolio ${portfolio}).`;
   return { limit, rationale };
 }
 

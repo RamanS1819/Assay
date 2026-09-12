@@ -17,7 +17,8 @@
     "fund:agent": "tsx scripts/fund-agent.ts",
     "smoke:executor": "tsx scripts/smoke-executor.ts",
     "db:migrate": "tsx scripts/db-migrate.ts",
-    "agent": "tsx scripts/agent.ts"
+    "agent": "tsx scripts/agent.ts",
+    "money-shot": "tsx scripts/money-shot.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
