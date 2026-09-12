@@ -1,37 +1,51 @@
 /**
  * x402 gateway logic — framework-agnostic and testable. A Next.js route (or an
  * Express handler) is a thin adapter that calls `gate()` and maps GateResult to
- * an HTTP response. Follows the x402 flow (plan §2C):
+ * an HTTP response. Follows the x402 v2 flow settled by Blocky402 on Hedera:
  *
- *   no PAYMENT-SIGNATURE ─────▶ 402 + PAYMENT-REQUIRED header
- *   PAYMENT-SIGNATURE present ─▶ facilitator.verify -> facilitator.settle -> 200 + txHash
+ *   no PAYMENT-SIGNATURE ─────▶ 402 + PAYMENT-REQUIRED header (the accepts[] requirements)
+ *   PAYMENT-SIGNATURE present ─▶ facilitator.verify -> facilitator.settle -> 200 + txId
  *
- * The facilitator is Blocky402 on Hedera; it broadcasts + pays gas (partial-sign).
- * We never hold funds; we only verify + trigger settlement.
+ * The facilitator is Blocky402; it adds the fee-payer signature, broadcasts, and
+ * pays gas. We never hold funds; we only verify + trigger settlement. Field shapes
+ * (v2: `amount`, `extra.feePayer`, payload carries `accepted`) are verified against
+ * the live facilitator — see scripts/probe-x402.ts and lib/live/hedera-payment.ts.
  */
+export const X402_VERSION = 2;
 
 export interface PaymentRequirement {
   scheme: string; // "exact"
-  network: string; // "hedera-testnet"
-  asset: string; // settlement token (e.g. USDC HTS id)
-  maxAmountRequired: string; // price in asset base units
-  payTo: string; // service account
-  resource: string; // the route being paid for
+  network: string; // "hedera:testnet"
+  amount: string; // price in the asset's base units (tinybars for HBAR)
+  asset: string; // "0.0.0" for native HBAR, else an HTS token id
+  payTo: string; // service account that receives the payment
+  maxTimeoutSeconds: number;
+  extra: { feePayer: string } & Record<string, unknown>;
 }
 
 export interface PaymentRequired {
+  x402Version: number;
   accepts: PaymentRequirement[];
 }
 
+/** The payload the buyer sends back in the PAYMENT-SIGNATURE header (base64 JSON). */
+export interface PaymentPayload {
+  x402Version: number;
+  accepted: PaymentRequirement; // the chosen requirement (v2 carries it here, not scheme/network)
+  payload: { transaction: string }; // base64 partially-signed Hedera tx
+}
+
 export interface GatewayConfig {
-  network: string;
-  asset: string;
-  payTo: string;
+  network: string; // "hedera:testnet"
+  asset: string; // "0.0.0"
+  payTo: string; // service account
+  feePayer: string; // facilitator account (0.0.7162784)
+  maxTimeoutSeconds?: number; // default 60
 }
 
 export interface RoutePrice {
   resource: string;
-  maxAmountRequired: string; // asset base units, e.g. "2000" = $0.002 of 6-decimal USDC
+  amount: string; // base units, e.g. "100000" tinybars
 }
 
 const b64encode = (s: string) => Buffer.from(s, 'utf8').toString('base64');
@@ -43,7 +57,7 @@ export function encodeRequired(pr: PaymentRequired): string {
 export function decodeRequired(header: string): PaymentRequired {
   return JSON.parse(b64decode(header));
 }
-export function decodePayment(header: string): unknown {
+export function decodePayment(header: string): PaymentPayload {
   return JSON.parse(b64decode(header));
 }
 
@@ -51,15 +65,16 @@ export function requirementFor(route: RoutePrice, cfg: GatewayConfig): PaymentRe
   return {
     scheme: 'exact',
     network: cfg.network,
+    amount: route.amount,
     asset: cfg.asset,
-    maxAmountRequired: route.maxAmountRequired,
     payTo: cfg.payTo,
-    resource: route.resource,
+    maxTimeoutSeconds: cfg.maxTimeoutSeconds ?? 60,
+    extra: { feePayer: cfg.feePayer },
   };
 }
 
 export function build402(route: RoutePrice, cfg: GatewayConfig): { header: string; body: PaymentRequired } {
-  const body: PaymentRequired = { accepts: [requirementFor(route, cfg)] };
+  const body: PaymentRequired = { x402Version: X402_VERSION, accepts: [requirementFor(route, cfg)] };
   return { header: encodeRequired(body), body };
 }
 
@@ -69,31 +84,35 @@ export interface VerifyResult {
 }
 
 export interface SettleResult {
-  txHash: string;
+  txHash: string; // Hedera tx id "0.0.X@sec.nanos"
 }
 
 export interface FacilitatorClient {
-  verify(payload: unknown, requirement: PaymentRequirement): Promise<VerifyResult>;
-  settle(payload: unknown, requirement: PaymentRequirement): Promise<SettleResult>;
+  verify(payload: PaymentPayload, requirement: PaymentRequirement): Promise<VerifyResult>;
+  settle(payload: PaymentPayload, requirement: PaymentRequirement): Promise<SettleResult>;
 }
 
 /** Real Blocky402 client. Not unit-tested (needs the live facilitator); gate() is. */
 export function httpFacilitator(baseUrl: string, fetchFn: typeof fetch = fetch): FacilitatorClient {
-  const post = async (path: string, body: unknown) => {
+  const post = async (path: string, payload: PaymentPayload, requirement: PaymentRequirement) => {
     const res = await fetchFn(`${baseUrl}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ x402Version: X402_VERSION, paymentPayload: payload, paymentRequirements: requirement }),
     });
-    if (!res.ok) throw new Error(`facilitator ${path} failed: ${res.status}`);
-    return res.json();
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(`facilitator ${path} failed (${res.status}): ${JSON.stringify(data)}`);
+    return data;
   };
   return {
     async verify(payload, requirement) {
-      return (await post('/verify', { paymentPayload: payload, paymentRequirements: requirement })) as VerifyResult;
+      const d = await post('/verify', payload, requirement);
+      return { isValid: Boolean(d.isValid), reason: (d.invalidReason as string) ?? (d.invalidMessage as string) };
     },
     async settle(payload, requirement) {
-      return (await post('/settle', { paymentPayload: payload, paymentRequirements: requirement })) as SettleResult;
+      const d = await post('/settle', payload, requirement);
+      if (!d.success) throw new Error(`settle rejected: ${(d.errorReason as string) ?? 'unknown'}`);
+      return { txHash: String(d.transaction) };
     },
   };
 }
@@ -120,7 +139,7 @@ export async function gate(
     return { ok: false, status: 402, requiredHeader: header };
   }
 
-  let payload: unknown;
+  let payload: PaymentPayload;
   try {
     payload = decodePayment(paymentHeader);
   } catch {

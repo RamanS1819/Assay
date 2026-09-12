@@ -24,10 +24,10 @@ describe('healthResponse', () => {
 });
 
 describe('PRICED_ROUTES', () => {
-  it('prices score, batch and watch in ascending resource specificity', () => {
-    expect(PRICED_ROUTES.score.maxAmountRequired).toBe('2000');
-    expect(PRICED_ROUTES.batch.maxAmountRequired).toBe('500');
-    expect(PRICED_ROUTES.watch.maxAmountRequired).toBe('20000');
+  it('prices score, batch and watch in tinybars', () => {
+    expect(PRICED_ROUTES.score.amount).toBe('100000');
+    expect(PRICED_ROUTES.batch.amount).toBe('25000');
+    expect(PRICED_ROUTES.watch.amount).toBe('1000000');
   });
   it('exposes the same signal keys as the scorer', () => {
     expect(SIGNALS.map((s) => s.key)).toEqual([

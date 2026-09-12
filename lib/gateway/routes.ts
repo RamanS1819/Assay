@@ -1,15 +1,16 @@
 /**
  * The API surface (plan §10). Two free routes so a judge can poke without a wallet;
- * three priced. Prices are in the settlement asset's base units (USDC = 6 decimals),
- * deliberately absurd next to the losses a bad counterparty causes.
+ * three priced. Prices are in the settlement asset's base units — tinybars of HBAR
+ * (1 HBAR = 100,000,000 tinybars) — deliberately tiny next to the losses a bad
+ * counterparty causes.
  */
 import type { RoutePrice } from './x402';
 import { WEIGHTS, MODEL_VERSION } from '../scorer/model';
 
 export const PRICED_ROUTES: Record<'score' | 'batch' | 'watch', RoutePrice> = {
-  score: { resource: '/score', maxAmountRequired: '2000' }, // $0.002
-  batch: { resource: '/score/batch', maxAmountRequired: '500' }, // $0.0005 each
-  watch: { resource: '/watch', maxAmountRequired: '20000' }, // $0.02 / hr
+  score: { resource: '/score', amount: '100000' }, // 0.001 HBAR
+  batch: { resource: '/score/batch', amount: '25000' }, // 0.00025 HBAR each
+  watch: { resource: '/watch', amount: '1000000' }, // 0.01 HBAR / hr
 };
 
 export interface SignalDef {

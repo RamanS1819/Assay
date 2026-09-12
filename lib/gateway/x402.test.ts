@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { gate, build402, encodeRequired, decodeRequired, decodePayment, requirementFor, type FacilitatorClient, type GatewayConfig, type RoutePrice } from './x402';
 
-const cfg: GatewayConfig = { network: 'hedera-testnet', asset: '0.0.429274', payTo: '0.0.1234' };
-const route: RoutePrice = { resource: '/score', maxAmountRequired: '2000' };
+const cfg: GatewayConfig = { network: 'hedera:testnet', asset: '0.0.0', payTo: '0.0.1234', feePayer: '0.0.7162784' };
+const route: RoutePrice = { resource: '/score', amount: '100000' };
 
 function facilitator(over: Partial<FacilitatorClient> = {}): FacilitatorClient {
   return {
     verify: vi.fn(async () => ({ isValid: true })),
-    settle: vi.fn(async () => ({ txHash: '0xhash' })),
+    settle: vi.fn(async () => ({ txHash: '0.0.7162784@1.2' })),
     ...over,
   };
 }
@@ -17,9 +17,10 @@ describe('encode/decode', () => {
     const { body } = build402(route, cfg);
     expect(decodeRequired(encodeRequired(body))).toEqual(body);
   });
-  it('requirementFor carries the price, asset, network and resource', () => {
+  it('requirementFor carries the v2 amount, asset, network, payTo and feePayer', () => {
     expect(requirementFor(route, cfg)).toEqual({
-      scheme: 'exact', network: 'hedera-testnet', asset: '0.0.429274', maxAmountRequired: '2000', payTo: '0.0.1234', resource: '/score',
+      scheme: 'exact', network: 'hedera:testnet', amount: '100000', asset: '0.0.0', payTo: '0.0.1234',
+      maxTimeoutSeconds: 60, extra: { feePayer: '0.0.7162784' },
     });
   });
 });
@@ -32,7 +33,7 @@ describe('gate', () => {
     expect(r.ok).toBe(false);
     if (r.status === 402) {
       const decoded = decodeRequired(r.requiredHeader);
-      expect(decoded.accepts[0].maxAmountRequired).toBe('2000');
+      expect(decoded.accepts[0].amount).toBe('100000');
     }
     expect(f.verify).not.toHaveBeenCalled();
   });
@@ -54,7 +55,7 @@ describe('gate', () => {
     const f = facilitator();
     const header = Buffer.from(JSON.stringify({ some: 'payload' })).toString('base64');
     const r = await gate(header, route, cfg, f);
-    expect(r).toEqual({ ok: true, status: 200, txHash: '0xhash' });
+    expect(r).toEqual({ ok: true, status: 200, txHash: '0.0.7162784@1.2' });
     expect(f.verify).toHaveBeenCalledOnce();
     expect(f.settle).toHaveBeenCalledOnce();
   });

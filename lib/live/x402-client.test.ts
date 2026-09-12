@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { x402Fetch, type PaymentBuilder } from './x402-client';
 import { build402, type GatewayConfig, type RoutePrice } from '../gateway/x402';
 
-const cfg: GatewayConfig = { network: 'hedera-testnet', asset: 'HBAR', payTo: '0.0.1234' };
-const route: RoutePrice = { resource: '/score', maxAmountRequired: '2000' };
+const cfg: GatewayConfig = { network: 'hedera:testnet', asset: '0.0.0', payTo: '0.0.1234', feePayer: '0.0.7162784' };
+const route: RoutePrice = { resource: '/score', amount: '100000' };
 
 function res(init: { status: number; headers?: Record<string, string>; body?: unknown }): Response {
   return {
@@ -24,7 +24,7 @@ function builder(): { fn: PaymentBuilder; seen: PaymentRequirementSeen } {
   return { fn, seen };
 }
 interface PaymentRequirementSeen {
-  requirement?: { maxAmountRequired: string; resource: string };
+  requirement?: { amount: string; asset: string };
 }
 
 describe('x402Fetch', () => {
@@ -42,7 +42,7 @@ describe('x402Fetch', () => {
 
     expect(out.data).toEqual({ value: 72 });
     expect(out.paymentTxHash).toBe('0xsettled');
-    expect(b.seen.requirement?.maxAmountRequired).toBe('2000');
+    expect(b.seen.requirement?.amount).toBe('100000');
     // second call carried the payment header
     const secondInit = (fetchFn as unknown as ReturnType<typeof vi.fn>).mock.calls[1][1];
     expect(secondInit.headers['payment-signature']).toBe('BASE64_SIGNED_PAYMENT');
