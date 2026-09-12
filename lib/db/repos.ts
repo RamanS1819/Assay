@@ -46,8 +46,9 @@ export class PaymentsRepo {
   }
 }
 
-/** issued = line granted, revoked = line pulled, escalated = withheld for 2-of-3 quorum. */
-export type DecisionState = 'issued' | 'escalated' | 'revoked';
+/** issued = line granted, revoked = existing line pulled, denied = new applicant
+ *  refused (below floor, no prior line), escalated = withheld for 2-of-3 quorum. */
+export type DecisionState = 'issued' | 'escalated' | 'revoked' | 'denied';
 
 export class DecisionsRepo {
   constructor(private sql: Sql) {}

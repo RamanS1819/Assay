@@ -46,7 +46,7 @@ tr:last-child td { border-bottom: none; }
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; letter-spacing: 0.5px; }
 .badge.eligible, .badge.issued { background: rgba(52, 211, 166, 0.14); color: var(--green); }
-.badge.escalated { background: rgba(230, 180, 80, 0.15); color: var(--amber); }
+.badge.escalated, .badge.denied { background: rgba(230, 180, 80, 0.15); color: var(--amber); }
 .badge.revoked, .badge.error { background: rgba(240, 97, 109, 0.15); color: var(--red); }
 .badge.skip { background: rgba(125, 139, 156, 0.15); color: var(--muted); }
 .badge.payment, .badge.score, .badge.decision, .badge.execution { background: rgba(90, 130, 200, 0.15); color: #8fb4ff; }

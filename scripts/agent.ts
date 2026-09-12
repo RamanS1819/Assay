@@ -137,21 +137,29 @@ async function main() {
     underwrite: (score, subject) =>
       runUnderwrite({ score, exposureUnits: subject.exposureUnits, requestedUnits: subject.requestedUnits, policy: POLICY, maxLimitUnits: subject.requestedUnits }),
     execute: async (decision) => {
-      const state: DecisionState = decision.revokes ? 'revoked' : 'issued';
+      const revoke = decision.revokes; // existing holder pulled
+      const denied = !revoke && decision.limit === 0; // new applicant below floor, no line to pull
+      const state: DecisionState = revoke ? 'revoked' : denied ? 'denied' : 'issued';
+
       let txHash = 'record-only';
-      if (executor) {
-        // applyDecision signs via Privy, broadcasts to Hedera, waits, and audits the execution.
+      // Nothing to write on-chain for a denial (no line was ever granted).
+      if (executor && !denied) {
         txHash = await applyDecision(decision, { executor, audit: append, now });
       }
       await decisions.record(decision, state);
-      const exposure = exposureByAddr.get(decision.subject) ?? 0;
-      await holders.upsert({
-        address: decision.subject,
-        units: decision.revokes ? exposure : decision.limit,
-        eligible: !decision.revokes,
-        limit: decision.limit,
-      });
-      console.log(`  ${state}  limit=${decision.limit}  ${executor ? txHash : '(not executed)'}  ${decision.subject}`);
+
+      // A denial creates no holder row; issue/revoke update the register.
+      if (!denied) {
+        const exposure = exposureByAddr.get(decision.subject) ?? 0;
+        await holders.upsert({
+          address: decision.subject,
+          units: revoke ? exposure : decision.limit,
+          eligible: !revoke,
+          limit: decision.limit,
+        });
+      }
+      const note = denied ? '(denied — no line)' : executor ? txHash : '(not executed)';
+      console.log(`  ${state}  limit=${decision.limit}  ${note}  ${decision.subject}`);
       return txHash;
     },
     enqueueApproval: async (decision) => {

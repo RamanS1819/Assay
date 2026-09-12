@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import type { ConsoleState, AuditRow } from '@/lib/db/read';
 
 const short = (a: string) => (a && a.startsWith('0x') && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
-const hashscan = (tx: string) => `https://hashscan.io/testnet/transaction/${tx}`;
+// EVM hashes (issue/revoke) pass through; Hedera tx ids "0.0.X@sec.nanos" need dashes.
+const hashscan = (tx: string) => {
+  const m = tx.match(/^(\d+\.\d+\.\d+)@(\d+)\.(\d+)$/);
+  return `https://hashscan.io/testnet/transaction/${m ? `${m[1]}-${m[2]}-${m[3]}` : tx}`;
+};
 
 function describe(row: AuditRow): string {
   const p = (row.payload ?? {}) as Record<string, unknown>;

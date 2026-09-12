@@ -17,6 +17,7 @@
     "fund:agent": "tsx scripts/fund-agent.ts",
     "smoke:executor": "tsx scripts/smoke-executor.ts",
     "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:reset": "tsx scripts/db-reset.ts",
     "agent": "tsx scripts/agent.ts",
     "money-shot": "tsx scripts/money-shot.ts",
     "probe:x402": "tsx scripts/probe-x402.ts",
