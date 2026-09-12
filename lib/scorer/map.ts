@@ -5,6 +5,11 @@
 import type { ScoreInputs } from '../types/index';
 import type { RawLendingData, RawPortfolio, CounterpartyData } from './sources';
 
+// A balance-volatility source isn't wired yet. Until it is, volatility is UNMEASURED,
+// which is neutral (50 subscore via normalizeRecentVolatility), not "perfectly stable"
+// (100). A real measured 0% swing still scores 100 once the source is connected.
+const NEUTRAL_VOLATILITY_PCT = 50;
+
 /** balances[] -> aggregate portfolio facts (total, stablecoin ratio inputs, concentration). */
 export function aggregatePortfolio(balances: RawPortfolio): ScoreInputs['portfolio'] {
   const positive = balances.filter((b) => b.valueUsd > 0);
@@ -39,8 +44,10 @@ export function toScoreInputs(args: MapArgs): ScoreInputs {
       minHealthFactor: lending.minHealthFactor,
       liquidationCount: lending.liquidationCount,
     },
+    // Absent counterparty data -> {0,0}; normalizeCounterpartyHygiene reads the zero
+    // total as "no data observed" and returns neutral rather than a clean 100.
     counterparty: counterparty ?? { flaggedInteractionCount: 0, totalCounterparties: 0 },
-    volatility: { balanceStdDevPct: balanceStdDevPct ?? 0 },
+    volatility: { balanceStdDevPct: balanceStdDevPct ?? NEUTRAL_VOLATILITY_PCT },
   };
 }
 

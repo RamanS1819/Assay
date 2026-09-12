@@ -23,7 +23,11 @@
  */
 import type { Score, ScoreInputs, Subscores, Weights } from '../types/index';
 
-export const MODEL_VERSION = '1.0.0';
+export const MODEL_VERSION = '1.1.0';
+
+/** Missing/unmeasured signal -> neutral, never optimistic. A credit bureau treats a
+ *  blind spot as "unknown" (50), not "flawless" (100). */
+export const NEUTRAL_SUBSCORE = 50;
 
 /** Weights sum to 1.0. */
 export const WEIGHTS: Weights = {
@@ -78,7 +82,9 @@ export function normalizeLeverageHistory(l: ScoreInputs['leverage']): number {
 }
 
 export function normalizeCounterpartyHygiene(c: ScoreInputs['counterparty']): number {
-  if (c.flaggedInteractionCount <= 0) return 100;
+  // No counterparties observed at all -> no data to judge -> neutral, not "clean".
+  if (c.totalCounterparties <= 0) return NEUTRAL_SUBSCORE;
+  if (c.flaggedInteractionCount <= 0) return 100; // observed, none flagged -> genuinely clean
   return clamp(100 - c.flaggedInteractionCount * FLAGGED_PENALTY);
 }
 

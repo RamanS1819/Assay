@@ -29,12 +29,14 @@ describe('aggregatePortfolio', () => {
 });
 
 describe('toScoreInputs', () => {
-  it('passes leverage through and defaults counterparty + volatility', () => {
+  it('passes leverage through and defaults counterparty + volatility to neutral', () => {
     const args: MapArgs = { lending, portfolio: [{ symbol: 'USDC', valueUsd: 100, isStablecoin: true }] };
     const inputs = toScoreInputs(args);
     expect(inputs.leverage).toEqual({ openBorrowsUsd: 0, collateralUsd: 0, minHealthFactor: null, liquidationCount: 0 });
+    // Absent counterparty -> zero total (read downstream as "no data" -> neutral 50).
     expect(inputs.counterparty).toEqual({ flaggedInteractionCount: 0, totalCounterparties: 0 });
-    expect(inputs.volatility).toEqual({ balanceStdDevPct: 0 });
+    // Unmeasured volatility defaults to a neutral swing (50 -> subscore 50), not 0 (-> 100).
+    expect(inputs.volatility).toEqual({ balanceStdDevPct: 50 });
     expect(inputs.accountMaturity.firstSeenBlock).toBe(100);
   });
 

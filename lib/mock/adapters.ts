@@ -16,11 +16,14 @@ export function fakeTxHash(prefix = '0xmock'): string {
   return `${prefix}${(++counter).toString(16).padStart(6, '0')}`;
 }
 
-/** Score data from the fixture chain instead of The Graph. */
+/** Score data from the fixture chain instead of The Graph. Models a fully-wired
+ *  scorer: it supplies counterparty data (observed, clean) so the demo doesn't lean
+ *  on the missing-data neutral default the live (lending-only) scorer falls back to. */
 export function mockScoreDeps(chain: MockChain, cache: InMemoryScoreCache = new InMemoryScoreCache()): ScoreDeps {
   return {
     fetchLending: async (address) => chain.lending(address),
     fetchPortfolio: async (address) => chain.portfolio(address),
+    fetchCounterparty: async () => ({ flaggedInteractionCount: 0, totalCounterparties: 20 }),
     cache,
   };
 }

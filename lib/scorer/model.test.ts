@@ -89,7 +89,10 @@ describe('normalizeLeverageHistory', () => {
 });
 
 describe('normalizeCounterpartyHygiene', () => {
-  it('is 100 with no flagged interactions', () => {
+  it('is neutral (50) when no counterparties were observed at all (no data)', () => {
+    expect(normalizeCounterpartyHygiene({ flaggedInteractionCount: 0, totalCounterparties: 0 })).toBe(50);
+  });
+  it('is 100 with observed counterparties and no flagged interactions', () => {
     expect(normalizeCounterpartyHygiene({ flaggedInteractionCount: 0, totalCounterparties: 50 })).toBe(100);
   });
   it('drops 25 points per flagged counterparty and floors at 0', () => {
