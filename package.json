@@ -19,7 +19,8 @@
     "db:migrate": "tsx scripts/db-migrate.ts",
     "agent": "tsx scripts/agent.ts",
     "money-shot": "tsx scripts/money-shot.ts",
-    "probe:x402": "tsx scripts/probe-x402.ts"
+    "probe:x402": "tsx scripts/probe-x402.ts",
+    "buy:score": "tsx scripts/buy-score.ts"
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.81.0",
