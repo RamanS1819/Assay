@@ -27,8 +27,12 @@ const config: HardhatUserConfig = {
       chainId: 296,
     },
   },
-  // HashScan reads Sourcify — `VERIFY=1` in the deploy script verifies the contract.
+  // NOTE: `hardhat verify` (Hardhat 2's plugin) only speaks Sourcify's removed legacy
+  // API and there is no Etherscan on Hedera — so verify via `npm run verify`
+  // (scripts/verify-sourcify.mjs), which POSTs to Sourcify's v2 API. HashScan reads
+  // Sourcify. Left enabled/disabled here only to keep the plugin quiet.
   sourcify: { enabled: true },
+  etherscan: { enabled: false },
 };
 
 export default config;
