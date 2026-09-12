@@ -112,7 +112,7 @@ async function main() {
       const score = await getScore(subject.address, { atBlock: block, chain: 'ethereum' }, scoreDeps);
       await scores.save(score);
       await append({ type: 'score', subject: subject.address, value: score.value, asOfBlock: score.asOfBlock, at: now() });
-      console.log(`  score ${score.value}  (leverage ${score.subscores.leverageHistory}, portfolio ${score.subscores.portfolioQuality})  ${subject.address}`);
+      console.log(`  score ${score.value}  (leverage ${Math.round(score.subscores.leverageHistory)}, portfolio ${Math.round(score.subscores.portfolioQuality)})  ${subject.address}`);
       return { score };
     },
     underwrite: (score, subject) =>
