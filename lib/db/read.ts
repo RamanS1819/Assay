@@ -56,9 +56,11 @@ export async function getHolders(sql: Sql): Promise<Holder[]> {
 }
 
 export async function getSpendSummary(sql: Sql): Promise<SpendSummary> {
+  // All-time spend: every settled query counts, so the meter reads true even when a
+  // recording happens the day after the data was populated.
   const rows = await sql<Record<string, unknown>>`
     SELECT COALESCE(SUM(CAST(amount AS numeric)), 0) AS spent, COUNT(*) AS count
-    FROM payments WHERE settled_at >= date_trunc('day', now())`;
+    FROM payments`;
   const r = rows[0] ?? {};
   return { spentBaseUnits: Number(r.spent ?? 0), count: Number(r.count ?? 0) };
 }

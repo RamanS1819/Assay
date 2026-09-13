@@ -63,7 +63,7 @@ export default function Console() {
         </div>
         <div className="meter">
           <div className="muted">
-            agent spend today · {state?.spend.count ?? 0} queries
+            agent spend · {state?.spend.count ?? 0} queries
           </div>
           <div>
             ${spentUsd.toFixed(3)} <span className="muted">/ ${cap.toFixed(2)}</span>
