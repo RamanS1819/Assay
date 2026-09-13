@@ -35,7 +35,7 @@ async function main() {
   // TRUNCATE all at once (RESTART IDENTITY resets serials; CASCADE covers the
   // approvals -> decisions FK). The user-owned demo DB, cleared on explicit request.
   await sql.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`);
-  console.log('\nCleared. The console will fall back to the demo state until the next live cycle.');
+  console.log('\nCleared. The console now shows the empty state until the next live cycle.');
 }
 
 main().catch((err) => {

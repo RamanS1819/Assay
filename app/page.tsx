@@ -87,18 +87,24 @@ export default function Console() {
               </tr>
             </thead>
             <tbody>
-              {(state?.holders ?? []).map((h) => (
-                <tr key={h.address}>
-                  <td className="addr">{short(h.address)}</td>
-                  <td className="num">{h.units.toLocaleString()}</td>
-                  <td className="num">{h.limit.toLocaleString()}</td>
-                  <td>
-                    <span className={`badge ${h.eligible ? 'eligible' : 'revoked'}`}>
-                      {h.eligible ? 'ELIGIBLE' : 'REVOKED'}
-                    </span>
-                  </td>
+              {(state?.holders ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="muted">No credit lines yet — run the agent to issue one.</td>
                 </tr>
-              ))}
+              ) : (
+                (state?.holders ?? []).map((h) => (
+                  <tr key={h.address}>
+                    <td className="addr">{short(h.address)}</td>
+                    <td className="num">{h.units.toLocaleString()}</td>
+                    <td className="num">{h.limit.toLocaleString()}</td>
+                    <td>
+                      <span className={`badge ${h.eligible ? 'eligible' : 'revoked'}`}>
+                        {h.eligible ? 'ELIGIBLE' : 'REVOKED'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -107,6 +113,11 @@ export default function Console() {
           <h2>Underwriting decisions</h2>
           <table>
             <tbody>
+              {(state?.decisions ?? []).length === 0 && (
+                <tr>
+                  <td className="muted">No decisions yet — the agent hasn't underwritten anyone.</td>
+                </tr>
+              )}
               {(state?.decisions ?? []).map((d, i) => (
                 <tr key={i}>
                   <td>
@@ -128,6 +139,11 @@ export default function Console() {
         <h2>Audit trail</h2>
         <table>
           <tbody>
+            {(state?.audit ?? []).length === 0 && (
+              <tr>
+                <td className="muted" colSpan={3}>No activity yet — run a query to begin.</td>
+              </tr>
+            )}
             {(state?.audit ?? []).map((row, i) => (
               <tr key={i}>
                 <td style={{ width: 100 }}>
